@@ -30,7 +30,7 @@ export default function HomePage() {
         <div className="mt-4 grid gap-6 md:grid-cols-3">
           <div className="md:col-span-2 space-y-3 text-sm leading-7 text-ink/80">
             <p>
-              王老师，国家二级心理咨询师，从事学校心理健康教育工作 10
+              丁丁老师，国家二级心理咨询师，从事学校心理健康教育工作 10
               年，累计个体咨询 1500+ 小时。擅长青少年情绪疏导、学业压力调适、人际关系与家庭沟通议题。
             </p>
             <p>
