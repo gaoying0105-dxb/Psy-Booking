@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============ 设计变量：晨雾 / 松绿 / 暖琥珀 ============ */
+:root {
+  --mist: #f6f5f1;       /* 背景：晨雾白 */
+  --ink: #243730;        /* 正文：松墨 */
+  --pine: #4c7a66;       /* 主色：松绿 */
+  --pine-soft: #e4ede8;  /* 主色浅底 */
+  --amber: #b9842e;      /* 点缀：暖琥珀 */
+  --line: #e1ded6;       /* 分割线 */
+  --font-display: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --font-body: -apple-system, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+}
+
+html {
+  background: var(--mist);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============ 首页"呼吸圆"：心理咨询的标志性元素 ============ */
+.breath-circle {
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 30%, #7ba38f, var(--pine) 70%);
+  animation: breathe 7s ease-in-out infinite;
+  opacity: 0.92;
+}
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  45%      { transform: scale(1.14); } /* 吸气 ~3s */
+  60%      { transform: scale(1.14); } /* 屏息 */
+}
+@media (prefers-reduced-motion: reduce) {
+  .breath-circle { animation: none; }
+}
+
+/* ============ 常用组件样式 ============ */
+.btn {
+  @apply inline-flex items-center justify-center rounded-full px-6 py-2.5 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed;
+}
+.btn-primary { @apply btn bg-pine text-white hover:bg-[#3f6655]; }
+.btn-ghost   { @apply btn border border-line bg-white hover:border-pine hover:text-pine; }
+.btn-danger  { @apply btn border border-red-200 bg-white text-red-600 hover:bg-red-50; }
+
+.card  { @apply rounded-2xl border border-line bg-white p-6; }
+.field { @apply w-full rounded-xl border border-line bg-white px-4 py-2.5 text-sm outline-none focus:border-pine; }
+.label { @apply mb-1.5 block text-sm font-medium; }

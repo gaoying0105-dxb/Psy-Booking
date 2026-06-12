@@ -1,0 +1,24 @@
+# 保活脚本：每周一、四自动 ping 一次 Supabase，
+# 防止免费版数据库因 7 天不活跃而被暂停。
+#
+# 配置方法（项目推到 GitHub 后）：
+# 仓库 Settings → Secrets and variables → Actions → New repository secret
+#   1. SUPABASE_URL      = https://你的项目id.supabase.co
+#   2. SUPABASE_ANON_KEY = 你的 anon 公钥
+name: Supabase Keep Alive
+
+on:
+  schedule:
+    - cron: "0 1 * * 1,4" # UTC 01:00 = 北京时间 09:00，每周一和周四
+  workflow_dispatch: {} # 也可以手动触发测试
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          curl -s -o /dev/null -w "HTTP %{http_code}\n" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/site_settings?select=key&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
