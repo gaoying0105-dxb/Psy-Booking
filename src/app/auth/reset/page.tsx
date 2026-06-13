@@ -25,7 +25,6 @@ useEffect(() => {
         type: "recovery",
       });
       if (!error) {
-        window.history.replaceState({}, "", "/auth/reset");
         setReady(true);
       } else {
         setMsg("链接已失效，请重新发送重置邮件");
