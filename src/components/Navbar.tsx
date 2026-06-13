@@ -60,10 +60,11 @@ export default function Navbar() {
         <div className="ml-auto flex items-center gap-2">
           {email ? (
             <>
-              <span className="hidden text-xs text-ink/50 sm:inline">{email}</span>
-              <button onClick={logout} className="btn-ghost !px-4 !py-1.5 text-xs">
-                退出
-              </button>
+            <span className="hidden text-xs text-ink/50 sm:inline">{email}</span>
+            <a href="/me/password" className="btn-ghost !px-4 !py-1.5 text-xs">修改密码</a>
+            <button onClick={logout} className="btn-ghost !px-4 !py-1.5 text-xs">
+              退出
+            </button>
             </>
           ) : (
             <Link href="/login" className="btn-primary !px-4 !py-1.5 text-xs">
