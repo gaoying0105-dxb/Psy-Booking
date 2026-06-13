@@ -15,6 +15,13 @@ const FILTERS = [
   { value: "no_show", label: "失约" },
 ];
 
+interface ConfirmForm {
+  mode: "online" | "offline";
+  link: string;
+  location: string;
+  note: string;
+}
+
 export default function AdminPage() {
   const supabase = useMemo(() => createClient(), []);
   const [list, setList] = useState<Appointment[]>([]);
@@ -23,6 +30,10 @@ export default function AdminPage() {
   const [msg, setMsg] = useState("");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [deleting, setDeleting] = useState(false);
+
+  // 确认表单：key 为 appointment id，存在则展开
+  const [confirmForms, setConfirmForms] = useState<Record<number, ConfirmForm>>({});
+  const [confirming, setConfirming] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -39,7 +50,6 @@ export default function AdminPage() {
 
   async function setStatus(id: number, status: AppointmentStatus) {
     const labels: Record<string, string> = {
-      confirmed: "确认这条预约",
       rejected: "拒绝这条预约",
       cancelled: "取消这条预约（管理员操作不受48小时限制）",
       no_show: "将该用户标记为失约（累计2次将无法再预约）",
@@ -52,6 +62,64 @@ export default function AdminPage() {
       .eq("id", id);
     if (error) setMsg(error.message);
     else setMsg(`操作成功：已${STATUS_TEXT[status]}`);
+    load();
+  }
+
+  function openConfirmForm(id: number) {
+    setConfirmForms(prev => ({
+      ...prev,
+      [id]: prev[id] ?? { mode: "online", link: "", location: "", note: "" },
+    }));
+  }
+
+  function closeConfirmForm(id: number) {
+    setConfirmForms(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }
+
+  function updateConfirmForm(id: number, patch: Partial<ConfirmForm>) {
+    setConfirmForms(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }
+
+  async function submitConfirm(a: Appointment) {
+    const f = confirmForms[a.id];
+    if (!f) return;
+
+    const detail = f.mode === "online"
+      ? `咨询方式：线上视频\n会议链接：${f.link || "（待发送）"}`
+      : `咨询方式：线下面谈\n咨询地点：${f.location || "（待确认）"}`;
+    const replyMessage = f.note ? `${detail}\n备注：${f.note}` : detail;
+
+    setConfirming(a.id);
+    setMsg("");
+
+    const { error } = await supabase
+      .from("appointments")
+      .update({ status: "confirmed", reply_message: replyMessage })
+      .eq("id", a.id);
+
+    if (error) {
+      setMsg(error.message);
+      setConfirming(null);
+      return;
+    }
+
+    const res = await fetch("/api/send-confirm-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ appointmentId: a.id }),
+    });
+    const json = await res.json();
+
+    setConfirming(null);
+    closeConfirmForm(a.id);
+
+    if (!res.ok) setMsg(`预约已确认，但邮件发送失败：${json.error}`);
+    else setMsg(`已确认预约并发送通知邮件至 ${a.email}`);
+
     load();
   }
 
@@ -186,11 +254,81 @@ export default function AdminPage() {
                 <p className="mt-2 rounded-xl bg-mist px-4 py-2 text-sm ml-7">
                   来访原因：{a.reason}
                 </p>
+                {(a.age || a.gender || a.emergency_contact || a.emergency_phone) && (
+                  <div className="mt-2 ml-7 flex flex-wrap gap-x-6 gap-y-1 text-sm text-ink/70">
+                    {a.age && <span>年龄：{a.age} 岁</span>}
+                    {a.gender && <span>性别：{a.gender === "male" ? "男" : a.gender === "female" ? "女" : "其他"}</span>}
+                    {a.emergency_contact && <span>紧急联系人：{a.emergency_contact}</span>}
+                    {a.emergency_phone && <span>紧急联系人电话：{a.emergency_phone}</span>}
+                  </div>
+                )}
+
+                {/* 确认内联表单 */}
+                {a.status === "pending" && confirmForms[a.id] && (
+                  <div className="mt-3 ml-7 rounded-xl border border-pine/30 bg-pine-soft/20 p-4 space-y-3" onClick={e => e.stopPropagation()}>
+                    <p className="text-sm font-medium text-pine">填写确认信息后发送通知邮件</p>
+                    {/* 咨询方式 */}
+                    <div className="flex gap-2">
+                      {(["online", "offline"] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => updateConfirmForm(a.id, { mode: m })}
+                          className={`flex-1 rounded-lg border py-1.5 text-sm transition-colors ${
+                            confirmForms[a.id].mode === m
+                              ? "border-pine bg-pine text-white"
+                              : "border-line bg-white hover:border-pine"
+                          }`}
+                        >
+                          {m === "online" ? "线上" : "线下"}
+                        </button>
+                      ))}
+                    </div>
+                    {confirmForms[a.id].mode === "online" ? (
+                      <input
+                        className="field text-sm"
+                        placeholder="会议链接（如腾讯会议链接）"
+                        value={confirmForms[a.id].link}
+                        onChange={e => updateConfirmForm(a.id, { link: e.target.value })}
+                      />
+                    ) : (
+                      <input
+                        className="field text-sm"
+                        placeholder="线下地点（如：咨询室 308）"
+                        value={confirmForms[a.id].location}
+                        onChange={e => updateConfirmForm(a.id, { location: e.target.value })}
+                      />
+                    )}
+                    <textarea
+                      className="field text-sm min-h-16"
+                      placeholder="备注（选填）"
+                      value={confirmForms[a.id].note}
+                      onChange={e => updateConfirmForm(a.id, { note: e.target.value })}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => submitConfirm(a)}
+                        disabled={confirming === a.id}
+                        className="btn-primary !px-4 !py-1.5 text-xs"
+                      >
+                        {confirming === a.id ? "发送中…" : "确认并发送通知"}
+                      </button>
+                      <button
+                        onClick={() => closeConfirmForm(a.id)}
+                        className="btn-ghost !px-4 !py-1.5 text-xs"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-3 flex flex-wrap gap-2 pl-7" onClick={e => e.stopPropagation()}>
                   {a.status === "pending" && (
                     <>
-                      <button onClick={() => setStatus(a.id, "confirmed")} className="btn-primary !px-4 !py-1.5 text-xs">确认</button>
+                      {!confirmForms[a.id] && (
+                        <button onClick={() => openConfirmForm(a.id)} className="btn-primary !px-4 !py-1.5 text-xs">确认</button>
+                      )}
                       <button onClick={() => setStatus(a.id, "rejected")} className="btn-danger !px-4 !py-1.5 text-xs">拒绝</button>
                     </>
                   )}

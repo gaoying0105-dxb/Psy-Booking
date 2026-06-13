@@ -320,3 +320,10 @@ grant execute on function public.get_available_slots(date, date) to anon, authen
 grant execute on function public.book_appointment(bigint, text, text, text, text, text) to authenticated;
 grant execute on function public.cancel_appointment(bigint) to authenticated;
 grant execute on function public.is_admin() to anon, authenticated;
+
+-- ---------- 7. 扩展字段（在 Supabase 控制台 SQL Editor 中单独执行）----------
+alter table public.appointments add column if not exists age integer;
+alter table public.appointments add column if not exists gender text check (gender in ('male', 'female', 'other'));
+alter table public.appointments add column if not exists emergency_contact text;
+alter table public.appointments add column if not exists emergency_phone text;
+alter table public.appointments add column if not exists reply_message text;

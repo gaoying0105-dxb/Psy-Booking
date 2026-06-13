@@ -17,7 +17,7 @@ export default function BookPage() {
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
 
   // 表单
-  const [form, setForm] = useState({ name: "", class_name: "", phone: "", email: "", reason: "" });
+  const [form, setForm] = useState({ name: "", class_name: "", phone: "", email: "", reason: "", age: "", gender: "", emergency_contact: "", emergency_phone: "" });
   const [msg, setMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -82,7 +82,7 @@ export default function BookPage() {
     if (!validateEmail(form.email)) return setMsg("请输入正确的邮箱");
 
     setSubmitting(true);
-    const { data, error } = await supabase.rpc("book_appointment", {
+    const { data: apptId, error: bookError } = await supabase.rpc("book_appointment", {
       p_slot_id: selectedSlot.id,
       p_name: form.name,
       p_class: form.class_name,
@@ -90,15 +90,26 @@ export default function BookPage() {
       p_email: form.email,
       p_reason: form.reason,
     });
-    setSubmitting(false);
 
-    if (error) {
-      setMsg(error.message); // 数据库函数里的中文报错会直接显示
-      // 时段可能刚被别人约走，刷新一下
+    if (bookError) {
+      setMsg(bookError.message);
       router.refresh();
+      setSubmitting(false);
       return;
     }
-    router.push(`/book/success?id=${data}`);
+
+    // 更新选填字段
+    if (apptId && (form.age || form.gender || form.emergency_contact || form.emergency_phone)) {
+      await supabase.from("appointments").update({
+        age: form.age ? parseInt(form.age) : null,
+        gender: form.gender || null,
+        emergency_contact: form.emergency_contact || null,
+        emergency_phone: form.emergency_phone || null,
+      }).eq("id", apptId);
+    }
+
+    setSubmitting(false);
+    router.push(`/book/success?id=${apptId}`);
   }
 
   if (loading) return <p className="pt-10 text-center text-ink/50">正在加载可预约时段…</p>;
@@ -185,6 +196,59 @@ export default function BookPage() {
                 <label className="label">邮箱 *</label>
                 <input className="field" type="email" value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              </div>
+            </div>
+            {/* 选填信息 */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label">年龄 <span className="text-ink/40 font-normal">（选填）</span></label>
+                <input
+                  className="field"
+                  type="number"
+                  min={1}
+                  max={120}
+                  placeholder="如：17"
+                  value={form.age}
+                  onChange={(e) => setForm({ ...form, age: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="label">性别 <span className="text-ink/40 font-normal">（选填）</span></label>
+                <div className="flex gap-2 mt-1">
+                  {([["male", "男"], ["female", "女"], ["other", "其他"]] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setForm({ ...form, gender: form.gender === val ? "" : val })}
+                      className={`flex-1 rounded-xl border px-3 py-2 text-sm transition-colors ${
+                        form.gender === val
+                          ? "border-pine bg-pine text-white"
+                          : "border-line bg-white hover:border-pine"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="label">紧急联系人 <span className="text-ink/40 font-normal">（选填）</span></label>
+                <input
+                  className="field"
+                  placeholder="姓名"
+                  value={form.emergency_contact}
+                  onChange={(e) => setForm({ ...form, emergency_contact: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="label">紧急联系人电话 <span className="text-ink/40 font-normal">（选填）</span></label>
+                <input
+                  className="field"
+                  inputMode="numeric"
+                  placeholder="手机号"
+                  value={form.emergency_phone}
+                  onChange={(e) => setForm({ ...form, emergency_phone: e.target.value })}
+                />
               </div>
             </div>
             <div>

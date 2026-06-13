@@ -32,6 +32,11 @@ export interface Appointment {
   phone: string;
   email: string;
   reason: string;
+  age?: number | null;
+  gender?: string | null;
+  emergency_contact?: string | null;
+  emergency_phone?: string | null;
+  reply_message?: string | null;
   status: AppointmentStatus;
   cancelled_by: string | null;
   created_at: string;
