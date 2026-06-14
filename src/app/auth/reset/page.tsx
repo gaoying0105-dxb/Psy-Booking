@@ -1,40 +1,42 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
   const supabase = useMemo(() => createClient(), []);
-  const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
 
-useEffect(() => {
-  async function handleReset() {
-    const params = new URLSearchParams(window.location.search);
-    const token_hash = params.get("token_hash");
-    const type = params.get("type");
+  useEffect(() => {
+    async function handleReset() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const token_hash = params.get("token_hash");
+        const type = params.get("type");
 
-    if (token_hash && type === "recovery") {
-      const { error } = await supabase.auth.verifyOtp({
-        token_hash,
-        type: "recovery",
-      });
-      if (!error) {
-        setReady(true);
-      } else {
-        setMsg("链接已失效，请重新发送重置邮件");
+        if (token_hash && type === "recovery") {
+          const { error } = await supabase.auth.verifyOtp({
+            token_hash,
+            type: "recovery",
+          });
+          if (!error) {
+            setReady(true);
+          } else {
+            setMsg("链接已失效，请重新发送重置邮件");
+          }
+        } else {
+          setMsg("链接无效，请重新发送重置邮件");
+        }
+      } catch (e) {
+        setMsg("页面加载出错，请重新发送重置邮件");
       }
-    } else {
-      setMsg("链接无效，请重新发送重置邮件");
     }
-  }
-  handleReset();
-}, []);
+    handleReset();
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,10 +51,18 @@ useEffect(() => {
     setTimeout(() => { window.location.href = "/"; }, 2000);
   }
 
-  if (!ready) {
+  if (!ready && !msg) {
     return (
       <div className="mx-auto max-w-sm pt-10 text-center text-ink/50">
         正在验证链接，请稍候…
+      </div>
+    );
+  }
+
+  if (msg && !ready) {
+    return (
+      <div className="mx-auto max-w-sm pt-10 text-center text-red-500">
+        {msg}
       </div>
     );
   }
