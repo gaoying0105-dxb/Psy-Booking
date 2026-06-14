@@ -36,34 +36,29 @@ function LoginForm() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       setLoading(false);
       if (error) return setMsg("登录失败：" + (error.message === "Invalid login credentials" ? "邮箱或密码错误" : error.message));
-      setTimeout(async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === "SIGNED_IN" && session) {
+          subscription.unsubscribe();
           const { data: profile } = await supabase
             .from("profiles")
             .select("role")
-            .eq("id", user.id)
+            .eq("id", session.user.id)
             .single();
           window.location.href = profile?.role === "admin" ? "/admin" : next;
         }
-      }, 500);
+      });
     } else {
       const { data, error } = await supabase.auth.signUp({ email, password });
       setLoading(false);
       if (error) return setMsg("注册失败：" + error.message);
       if (data.session) {
         // 关闭了邮箱验证时会直接返回会话
-        setTimeout(async () => {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("role")
-              .eq("id", user.id)
-              .single();
-            window.location.href = profile?.role === "admin" ? "/admin" : next;
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === "SIGNED_IN" && session) {
+            subscription.unsubscribe();
+            window.location.href = next;
           }
-        }, 500);
+        });
       } else {
         setMsg("注册成功！请前往邮箱点击确认链接，然后回来登录。");
         setMode("login");
