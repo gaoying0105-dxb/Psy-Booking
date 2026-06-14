@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { validateEmail } from "@/lib/format";
@@ -10,11 +10,40 @@ function LoginForm() {
   const router = useRouter();
   const next = useSearchParams().get("next") || "/book";
 
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        subscription.unsubscribe();
+        window.location.href = await getRedirectUrl(session);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [supabase]);
+
   const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+
+  async function getRedirectUrl(session: { user: { id: string } }) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', session.user.id)
+      .single();
+
+    if (profile?.role === 'admin') return '/admin';
+
+    const { data: appts } = await supabase
+      .from('appointments')
+      .select('id')
+      .eq('user_id', session.user.id)
+      .in('status', ['pending', 'confirmed'])
+      .limit(1);
+
+    return appts && appts.length > 0 ? '/me' : '/book';
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,12 +68,7 @@ function LoginForm() {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === "SIGNED_IN" && session) {
           subscription.unsubscribe();
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("role")
-            .eq("id", session.user.id)
-            .single();
-          window.location.href = profile?.role === "admin" ? "/admin" : next;
+          window.location.href = await getRedirectUrl(session);
         }
       });
     } else {
@@ -56,7 +80,7 @@ function LoginForm() {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (event === "SIGNED_IN" && session) {
             subscription.unsubscribe();
-            window.location.href = next;
+            window.location.href = await getRedirectUrl(session);
           }
         });
       } else {
