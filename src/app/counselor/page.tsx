@@ -47,7 +47,6 @@ export default function CounselorPage() {
   useEffect(() => {
     async function init() {
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('session:', session?.user?.id);
       if (!session) {
         window.location.href = '/login?next=/counselor';
         return;
