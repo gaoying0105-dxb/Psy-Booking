@@ -22,6 +22,10 @@ async function verifyAdmin(): Promise<boolean> {
 }
 
 export async function GET() {
+  console.log('SERVICE_ROLE_KEY exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return Response.json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY' }, { status: 500 });
+  }
   if (!(await verifyAdmin())) {
     return NextResponse.json({ error: "无权限" }, { status: 401 });
   }
@@ -35,6 +39,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  console.log('SERVICE_ROLE_KEY exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return Response.json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY' }, { status: 500 });
+  }
   if (!(await verifyAdmin())) {
     return NextResponse.json({ error: "无权限" }, { status: 401 });
   }
