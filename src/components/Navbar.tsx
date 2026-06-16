@@ -10,7 +10,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -19,10 +19,14 @@ export default function Navbar() {
       if (!mounted) return;
       setEmail(user?.email ?? null);
       if (user) {
-        const { data } = await supabase.rpc("is_admin");
-        if (mounted) setIsAdmin(Boolean(data));
+        const { data } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        if (mounted) setRole(data?.role ?? null);
       } else {
-        setIsAdmin(false);
+        setRole(null);
       }
     }
     load();
@@ -53,18 +57,44 @@ export default function Navbar() {
         <Link href="/" className="mr-4 font-display text-lg font-bold text-pine">
           心语预约
         </Link>
-        {link("/", "首页")}
-        {link("/book", "立即预约")}
-        {email && link("/me", "我的预约")}
-        {isAdmin && link("/admin", "管理后台")}
+
+        {/* 未登录 */}
+        {!email && link("/", "首页")}
+
+        {/* admin */}
+        {role === "admin" && (
+          <>
+            {link("/", "首页")}
+            {link("/admin", "预约管理")}
+            {link("/admin/counselors", "咨询师管理")}
+            {link("/admin/settings", "系统设置")}
+          </>
+        )}
+
+        {/* counselor */}
+        {role === "counselor" && (
+          <>
+            {link("/counselor", "我的预约")}
+            {link("/counselor/slots", "时段管理")}
+            {link("/counselor/profile", "个人资料")}
+            {link("/me/password", "修改密码")}
+          </>
+        )}
+
+        {/* user */}
+        {role === "user" && (
+          <>
+            {link("/", "首页")}
+            {link("/me", "我的预约")}
+            {link("/me/password", "修改密码")}
+          </>
+        )}
+
         <div className="ml-auto flex items-center gap-2">
           {email ? (
             <>
-            <span className="hidden text-xs text-ink/50 sm:inline">{email}</span>
-            <a href="/me/password" className="btn-ghost !px-4 !py-1.5 text-xs">修改密码</a>
-            <button onClick={logout} className="btn-ghost !px-4 !py-1.5 text-xs">
-              退出
-            </button>
+              <span className="hidden text-xs text-ink/50 sm:inline">{email}</span>
+              <button onClick={logout} className="btn-ghost !px-4 !py-1.5 text-xs">退出</button>
             </>
           ) : (
             <Link href="/login" className="btn-primary !px-4 !py-1.5 text-xs">

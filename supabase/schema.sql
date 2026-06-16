@@ -327,3 +327,86 @@ alter table public.appointments add column if not exists gender text check (gend
 alter table public.appointments add column if not exists emergency_contact text;
 alter table public.appointments add column if not exists emergency_phone text;
 alter table public.appointments add column if not exists reply_message text;
+
+-- ---------- 8. 多咨询师功能第一期（在 Supabase 控制台 SQL Editor 中单独执行）----------
+
+-- 咨询师表
+CREATE TABLE public.counselors (
+  id bigint generated always as identity primary key,
+  user_id uuid references public.profiles(id) on delete cascade,
+  name text not null,
+  bio text,
+  slug text unique not null,
+  org_type text not null check (org_type in ('school','hospital','social')),
+  org_name text,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+ALTER TABLE public.counselors ENABLE ROW LEVEL SECURITY;
+
+-- time_slots 和 appointments 加 counselor_id 外键
+ALTER TABLE public.time_slots ADD COLUMN IF NOT EXISTS counselor_id bigint references public.counselors(id);
+ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS counselor_id bigint references public.counselors(id);
+
+-- RLS：咨询师只能看/改自己的时段
+CREATE POLICY "counselor_own_slots" ON public.time_slots
+  FOR ALL USING (
+    counselor_id IN (
+      SELECT id FROM public.counselors WHERE user_id = auth.uid()
+    ) OR public.is_admin()
+  );
+
+-- RLS：咨询师只能看自己的预约
+CREATE POLICY "counselor_own_appts" ON public.appointments
+  FOR SELECT USING (
+    user_id = auth.uid() OR
+    counselor_id IN (
+      SELECT id FROM public.counselors WHERE user_id = auth.uid()
+    ) OR
+    public.is_admin()
+  );
+
+-- profiles role 约束加入 counselor
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
+  CHECK (role IN ('user','admin','counselor'));
+
+-- ---------- 9. counselors 表扩展字段 + RLS（2025-06 多咨询师第二期）----------
+ALTER TABLE public.counselors ADD COLUMN IF NOT EXISTS booking_notice text;
+ALTER TABLE public.counselors ADD COLUMN IF NOT EXISTS avatar_url text;
+
+-- 咨询师可更新自己的资料
+CREATE POLICY "counselor_update_own" ON public.counselors
+  FOR UPDATE USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+-- 公开读取（来访者访问 /c/[slug] 需要）
+CREATE POLICY IF NOT EXISTS "counselors_select" ON public.counselors
+  FOR SELECT USING (true);
+
+-- 允许咨询师更新自己名下的预约状态
+CREATE POLICY IF NOT EXISTS "counselor_update_appts" ON public.appointments
+  FOR UPDATE USING (
+    counselor_id IN (SELECT id FROM public.counselors WHERE user_id = auth.uid())
+  )
+  WITH CHECK (
+    counselor_id IN (SELECT id FROM public.counselors WHERE user_id = auth.uid())
+  );
+
+-- 允许用户在自己的预约上写扩展字段（age/gender/emergency_*）
+CREATE POLICY IF NOT EXISTS "user_update_own_appts" ON public.appointments
+  FOR UPDATE USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+-- counselor_own_slots 补 WITH CHECK（重建）
+DROP POLICY IF EXISTS "counselor_own_slots" ON public.time_slots;
+CREATE POLICY "counselor_own_slots" ON public.time_slots
+  FOR ALL
+  USING (
+    counselor_id IN (SELECT id FROM public.counselors WHERE user_id = auth.uid())
+    OR public.is_admin()
+  )
+  WITH CHECK (
+    counselor_id IN (SELECT id FROM public.counselors WHERE user_id = auth.uid())
+    OR public.is_admin()
+  );

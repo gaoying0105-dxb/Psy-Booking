@@ -34,6 +34,9 @@ function LoginForm() {
       .single();
 
     if (profile?.role === 'admin') return '/admin';
+    if (profile?.role === 'counselor') return '/counselor';
+
+    if (next && next !== '/book') return next;
 
     const { data: appts } = await supabase
       .from('appointments')

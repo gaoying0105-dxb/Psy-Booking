@@ -33,7 +33,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const needsAuth = ["/book", "/me", "/admin"].some(
+  const needsAuth = ["/book", "/me", "/admin", "/counselor"].some(
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
 

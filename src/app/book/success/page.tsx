@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client";
 import type { Appointment } from "@/lib/types";
 import { hm, prettyDate } from "@/lib/format";
 
-// ===== 预约成功确认页：展示详情 + 可配置的预约须知 =====
 function SuccessContent() {
   const supabase = useMemo(() => createClient(), []);
   const id = useSearchParams().get("id");
@@ -17,22 +16,23 @@ function SuccessContent() {
   useEffect(() => {
     if (!id) return;
     async function load() {
-      const [{ data: a }, { data: s }] = await Promise.all([
-        supabase
-          .from("appointments")
-          .select("*, time_slots(slot_date, start_time, end_time)")
-          .eq("id", id)
-          .single(),
-        supabase.from("site_settings").select("value").eq("key", "booking_notice").single(),
-      ]);
+      const { data: a } = await supabase
+        .from("appointments")
+        .select("*, time_slots(slot_date, start_time, end_time), counselors(booking_notice)")
+        .eq("id", id)
+        .single();
       setAppt(a as Appointment | null);
-      setNotice(s?.value ?? "");
+
+      // 优先使用咨询师的预约须知，无则不显示
+      const counselorNotice = (a as any)?.counselors?.booking_notice ?? "";
+      setNotice(counselorNotice);
     }
     load();
   }, [id, supabase]);
 
   if (!appt) return <p className="pt-10 text-center text-ink/50">加载中…</p>;
   const slot = appt.time_slots;
+  const className = appt.class_name && appt.class_name !== "无" ? appt.class_name : null;
 
   return (
     <div className="mx-auto max-w-lg pt-6">
@@ -49,7 +49,7 @@ function SuccessContent() {
       <div className="card mt-8 space-y-3 text-sm">
         <Row k="预约时间" v={slot ? `${prettyDate(slot.slot_date)} ${hm(slot.start_time)} – ${hm(slot.end_time)}` : "—"} />
         <Row k="姓名" v={appt.name} />
-        <Row k="班级" v={appt.class_name} />
+        {className && <Row k="班级" v={className} />}
         <Row k="手机号" v={appt.phone} />
         <Row k="邮箱" v={appt.email} />
         <Row k="来访原因" v={appt.reason} />

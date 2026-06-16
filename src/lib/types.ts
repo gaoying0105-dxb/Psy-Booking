@@ -47,6 +47,18 @@ export interface Appointment {
   } | null;
 }
 
+export interface Counselor {
+  id: number;
+  user_id: string | null;
+  name: string;
+  bio: string | null;
+  slug: string;
+  org_type: "school" | "hospital" | "social";
+  org_name: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface Profile {
   id: string;
   email: string | null;
