@@ -43,8 +43,9 @@ export default function CounselorsPage() {
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/counselors");
     const json = await res.json();
+    console.log('counselors data:', json, 'ok:', res.ok);
     if (!res.ok) { setMsg(json.error); setLoading(false); return; }
-    setCounselors(json.counselors ?? []);
+    setCounselors(Array.isArray(json) ? json : (json.counselors ?? []));
     setLoading(false);
   }, []);
 
